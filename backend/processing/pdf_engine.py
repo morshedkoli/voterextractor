@@ -25,19 +25,27 @@ def parse_voter_cell(text: str) -> Voter:
     
     # Name
     # Matches: নাম, নামঃ, নাম:, Nam
-    name_match = re.search(r'(?:নাম|ভোটার|Name)\s*[:\-\s]\s*(.+)', text)
+    # Stop at 'পিতা', 'স্বামী', 'মাতা', ID labels, 'ভোটার নং', digit sequences (Voter ID), or newline
+    # lookahead checks for:
+    # 1. Next field labels (Father, Husband, Mother)
+    # 2. ID labels (ID, NID, NO, ভোটার নং, ভোটার্নং)
+    # 3. 10+ digits (Voter ID)
+    # 4. Newline or End of String
+    name_match = re.search(r'(?:নাম|ভোটার|Name)\s*[:\-\s]\s*(.+?)(?=\s*(?:পিতা|স্বামী|Father|Husband|মাতা|Mother|ID|NID|NO|No|ভোটার\s*নং|ভোটার্নং|[০-৯0-9]{10,}|\n|$))', text)
     if name_match:
         voter.name = name_match.group(1).strip()
     
     # Father / Husband
     # Matches: পিতা, স্বামী, Father, Husband
-    father_match = re.search(r'(?:পিতা|স্বামী|Father|Husband)\s*[:\-\s]\s*(.+)', text)
+    # Stop at 'মাতা', 'Address', 'DOB', 'Occupation', 'ID', digits, or newline
+    father_match = re.search(r'(?:পিতা|স্বামী|Father|Husband)\s*[:\-\s]\s*(.+?)(?=\s*(?:মাতা|Mother|জন্ম|Date|DOB|পেশা|Occupation|ঠিকানা|Address|ID|NID|[০-৯0-9]{10,}|\n|$))', text)
     if father_match:
         voter.father_name = father_match.group(1).strip()
         
     # Mother
     # Matches: মাতা, Mother
-    mother_match = re.search(r'(?:মাতা|Mother)\s*[:\-\s]\s*(.+)', text)
+    # Stop at 'Address', 'DOB', 'Occupation', 'ID', digits, or newline
+    mother_match = re.search(r'(?:মাতা|Mother)\s*[:\-\s]\s*(.+?)(?=\s*(?:জন্ম|Date|DOB|পেশা|Occupation|ঠিকানা|Address|ID|NID|[০-৯0-9]{10,}|\n|$))', text)
     if mother_match:
         voter.mother_name = mother_match.group(1).strip()
     

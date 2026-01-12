@@ -126,22 +126,34 @@ def reorder_bengali_vowels(text: str) -> str:
     # Plus য়, ড়, ঢ়, ৎ (\u09af-\u09ce)
     # Includes Khanda-ta, Anusvara etc? Usually Pre-base vowels attach to base consonants.
     
-    consonant_pattern = r'[\u0995-\u09b9\u09af-\u09ce]'
+    # Define Bengali Consonants and modifiers for clustering:
+    # Consonants: \u0995-\u09b9 (k-h), \u09af-\u09ce (y, r, l, etc.)
+    # Nukta: \u09bc
+    # Virama (Hasant): \u09cd
+    # We want to match: [Consonant]+[Virama]+[Consonant]... (a full cluster)
+    # OR just [Consonant]
+    
+    # A syllable base unit (cluster or single)
+    # [Consonant][Nukta]?([Virama][Consonant][Nukta]?)*
+    
+    consonant_char = r'[\u0995-\u09b9\u09af-\u09ce]'
+    nukta = r'\u09bc?'
+    virama = r'\u09cd'
+    
+    # Construct cluster regex
+    # Start with one consonant (plus optional nukta)
+    # Followed by 0 or more groups of (Virama + Consonant + optional nukta)
+    cluster_pattern = f"(?:{consonant_char}{nukta}(?:{virama}{consonant_char}{nukta})*)"
     
     # Pre-base vowels
-    pre_vowels = r'[\u09c7\u09c8\u09bf]' 
+    pre_vowels = r'([\u09c7\u09c8\u09bf])' 
     
-    # CASE 1: Simple Vowel + Consonant -> Consonant + Vowel
-    # e.g. ি + ক -> ক + ি
-    # Use capturing groups to swap
-    # Regex: (pre_vowel)(consonant)
+    # Regex: Capture (Pre-Vowel) then Capture (Cluster)
+    # We swap them -> Cluster + Pre-Vowel
     
-    # Note: We loop because multiple swaps might be needed and regex overlaps can be tricky,
-    # but a single pass substitution usually works for distinct pairs.
+    pattern = f"{pre_vowels}({cluster_pattern})"
     
-    pattern = f"({pre_vowels})({consonant_pattern})"
-    
-    # We replace group 1 (vowel) group 2 (consonant) with group 2 group 1
+    # Replace: Group 2 (Cluster) + Group 1 (Vowel)
     return re.sub(pattern, r'\2\1', text)
 
 def normalize_bengali_text(text: str) -> str:
@@ -151,29 +163,26 @@ def normalize_bengali_text(text: str) -> str:
     if not text:
         return ""
     
-    # 0. Fix broken conjuncts BEFORE other processing
+    # 0. Unicode Normalization (NFC)
+    import unicodedata
+    text = unicodedata.normalize('NFC', text)
+    
+    # 1. Fix broken conjuncts (Basic / Aggressive)
     from .conjunct_fixer import fix_broken_conjuncts
     text = fix_broken_conjuncts(text, field_type="aggressive")
         
-    # 1. Replace CIDs
+    # 2. Replace CIDs (Font-specific)
     text = replace_cids(text)
     
-    # 1.5 Fix specific OCR word corruptions (Dictionary-based)
-    from .ocr_corrector import fix_ocr_corruptions
-    text = fix_ocr_corruptions(text)
-    
-    # 2. Fix Broken Vowel Ordering (Visual -> Logical)
+    # 3. Fix Broken Vowel Ordering (Visual -> Logical)
     text = reorder_bengali_vowels(text)
     
-    # 3. Fix 'o-kar' composition
-    # Often 'e-kar' + 'a-kar' -> 'o-kar'
-    # logical order: Consonant + e-kar + a-kar ? No.
-    # Standard Unicode: Consonant + o-kar (\u09cb).
-    # If we have Consonant + e-kar + a-kar, we should merge.
-    # AFTER reordering, we might have: ক + ে + া 
-    # This should become ক + ো
-    # \u09c7 (e-kar) + \u09be (a-kar) -> \u09cb (o-kar)
+    # 4. Fix 'o-kar' composition (e-kar + a-kar -> o-kar)
     text = text.replace('\u09c7\u09be', '\u09cb')
+    
+    # 5. Fix Name corruption using Dictionary (Last step before extraction)
+    from .ocr_corrector import fix_ocr_corruptions
+    text = fix_ocr_corruptions(text)
 
     return text.strip()
 
