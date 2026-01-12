@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { uploadPDF, ExtractionResult } from '@/lib/api';
 import { VoterTable } from '@/components/VoterTable';
+import { WordReplacement } from '@/components/WordReplacement';
 import { UploadCloud, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -15,10 +16,6 @@ export default function Home() {
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Replacement rules state
-  const [replacementRules, setReplacementRules] = useState<Array<{ find: string, replace: string }>>([
-    { find: '', replace: '' }
-  ]);
   const [processedResult, setProcessedResult] = useState<ExtractionResult | null>(null);
 
   // Metadata state
@@ -120,28 +117,14 @@ export default function Home() {
     document.body.removeChild(textArea);
   };
 
-  const addReplacementRule = () => {
-    setReplacementRules([...replacementRules, { find: '', replace: '' }]);
-  };
-
-  const removeReplacementRule = (index: number) => {
-    setReplacementRules(replacementRules.filter((_, i) => i !== index));
-  };
-
-  const updateReplacementRule = (index: number, field: 'find' | 'replace', value: string) => {
-    const newRules = [...replacementRules];
-    newRules[index][field] = value;
-    setReplacementRules(newRules);
-  };
-
-  const applyReplacements = () => {
+  const handleApplyReplacements = (rules: Array<{ find: string, replace: string }>) => {
     if (!result) return;
 
     const updatedData = result.data.map(voter => {
       let updatedVoter = { ...voter };
 
       // Apply replacements to all text fields
-      replacementRules.forEach(rule => {
+      rules.forEach(rule => {
         if (rule.find && rule.replace) {
           // Use safer replacement method that handles special characters
           // Replace in all string fields
@@ -164,8 +147,6 @@ export default function Home() {
       data: updatedData
     });
     setProcessedResult(null); // Clear processed result as main result is updated
-    setReplacementRules([{ find: '', replace: '' }]); // Reset rules
-    alert('Replacements applied successfully!');
   };
 
   return (
@@ -327,53 +308,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Word Replacement Section */}
-            <div className="max-w-2xl mx-auto my-8 p-6 bg-white dark:bg-zinc-900 rounded-xl shadow border border-zinc-200 dark:border-zinc-800">
-              <h2 className="text-lg font-semibold mb-2">Word Replacement</h2>
-              <p className="text-sm text-zinc-500 mb-4">Replace incorrect words in the extracted data</p>
-
-              {replacementRules.map((rule, index) => (
-                <div key={index} className="flex gap-2 mb-3">
-                  <input
-                    type="text"
-                    placeholder="Current word"
-                    value={rule.find}
-                    onChange={(e) => updateReplacementRule(index, 'find', e.target.value)}
-                    className="flex-1 px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Updated word"
-                    value={rule.replace}
-                    onChange={(e) => updateReplacementRule(index, 'replace', e.target.value)}
-                    className="flex-1 px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                  {replacementRules.length > 1 && (
-                    <button
-                      onClick={() => removeReplacementRule(index)}
-                      className="px-3 py-2 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors text-sm"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              ))}
-
-              <div className="flex gap-3 mt-4">
-                <button
-                  onClick={addReplacementRule}
-                  className="flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors text-sm font-medium"
-                >
-                  + Add More
-                </button>
-                <button
-                  onClick={applyReplacements}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-                >
-                  Update
-                </button>
-              </div>
-            </div>
+            <WordReplacement onApply={handleApplyReplacements} />
 
             <div className="flex justify-center gap-4 my-8">
               <button

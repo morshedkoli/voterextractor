@@ -1,28 +1,37 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import shutil
 import os
+import sys
 import uuid
+import webbrowser
 from .processing.pdf_engine import process_pdf
 from .models import ExtractionResult
 
+# Function to get resource path for PyInstaller
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 app = FastAPI(title="Bengali Voter Parser")
 
-# Allow CORS for Next.js
+# Allow CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, specify valid origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-UPLOAD_DIR = "uploads"
+UPLOAD_DIR = os.path.join(os.path.abspath("."), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-@app.get("/")
-def read_root():
-    return {"message": "Bengali Voter Parser API is running"}
 
 @app.post("/api/upload", response_model=ExtractionResult)
 async def upload_file(
@@ -75,3 +84,18 @@ async def upload_file(
         if os.path.exists(file_path):
             os.remove(file_path)
         raise HTTPException(status_code=500, detail=str(e))
+
+# Mount static files (Frontend) - Must be after API routes
+# We check if static directory exists (it will be present in distributed exe)
+static_path = resource_path("static")
+if os.path.exists(static_path):
+    app.mount("/", StaticFiles(directory=static_path, html=True), name="static")
+
+if __name__ == "__main__":
+    import uvicorn
+    # Open browser on startup (only for manual script run)
+    webbrowser.open("http://localhost:8000")
+    
+    from multiprocessing import freeze_support
+    freeze_support()
+    uvicorn.run(app, host="0.0.0.0", port=8000)
