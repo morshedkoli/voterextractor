@@ -21,3 +21,7 @@ build/
 uploads/
 *.pdf
 voters-*.json
+
+dist/
+
+*.spec
